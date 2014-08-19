@@ -114,7 +114,7 @@ module Spree
         validation_mode = preferred_validate_on_profile_create ? preferred_server.to_sym : :none
 
         { :profile => { :merchant_customer_id => "#{Time.now.to_f}",
-                        :ship_to_list => generate_address_hash(creditcard.checkout.ship_address),
+                        :ship_to_list => generate_address_hash(payment.order.ship_address),
                         :email => payment.order.email,
                         :payment_profiles => info },
           :validation_mode => validation_mode }
