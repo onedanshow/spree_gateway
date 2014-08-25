@@ -48,7 +48,7 @@ module Spree
       true
     end
 
-    # Create a new CIM customer profile ready to accept a payment
+    # Create a new CIM customer profile ready to accept a payment. Called by Spree::Payment on after_save.
     def create_profile(payment)
       if payment.source.gateway_customer_profile_id.nil?
         profile_hash = create_customer_profile(payment)
@@ -56,7 +56,7 @@ module Spree
       end
     end
 
-    # simpler form
+    # simpler form (does not appear to be used)
     def create_profile_from_card(card)
       if card.gateway_customer_profile_id.nil?
         profile_hash = create_customer_profile(card)
