@@ -33,7 +33,11 @@ module Spree
     end
 
     def capture(authorization, creditcard, gateway_options)
-      create_transaction((authorization.amount * 100).round, creditcard, :prior_auth_capture, :trans_id => authorization.response_code)
+      create_transaction(
+        (authorization.amount * 100).round, 
+        creditcard, 
+        :prior_auth_capture, 
+        :trans_id => authorization.response_code)
     end
 
     def credit(amount, creditcard, response_code, gateway_options)
@@ -53,6 +57,49 @@ module Spree
       if payment.source.gateway_customer_profile_id.nil?
         profile_hash = create_customer_profile(payment)
         payment.source.update_attributes(:gateway_customer_profile_id => profile_hash[:customer_profile_id], :gateway_payment_profile_id => profile_hash[:customer_payment_profile_id])
+      end
+    end
+
+    # Get the CIM payment profile; Needed for updates.
+    def get_profile(payment)
+      if payment.source.has_payment_profile?
+        cim_gateway.get_customer_profile({
+          :customer_profile_id => payment.source.gateway_customer_profile_id
+        }).params['profile'] 
+      end
+    end
+
+    # Update the CIM profile, such as the billing address
+    def update_profile(payment)
+      if payment.source.has_payment_profile?
+        update_customer_profile(payment)
+      end
+    end    
+
+    # Get the CIM payment profile; Needed for updates.
+    def get_payment_profile(payment)
+      if payment.source.has_payment_profile?
+        cim_gateway.get_customer_payment_profile({
+          :customer_profile_id => payment.source.gateway_customer_profile_id,
+          :customer_payment_profile_id => payment.source.gateway_payment_profile_id
+        }).params['payment_profile'].deep_symbolize_keys!
+      end
+    end
+
+    def update_payment_profile(payment)
+      if payment.source.has_payment_profile?
+        hash = get_payment_profile(payment)
+        hash[:bill_to] = generate_address_hash(payment.order.bill_address) 
+        if hash[:payment][:credit_card]
+          # activemerchant expects a credit card object with 'number', 'year', 'month', and 'verification_value?' defined
+          payment.source.define_singleton_method(:number) { "XXXXXXXXX#{payment.source.last_digits}" }
+          puts payment.source.number
+          hash[:payment][:credit_card] = payment.source
+        end
+        cim_gateway.update_customer_payment_profile({ 
+          :customer_profile_id => payment.source.gateway_customer_profile_id,
+          :payment_profile => hash
+        })
       end
     end
 
@@ -99,6 +146,27 @@ module Spree
         if response.success?
           { :customer_profile_id => response.params['customer_profile_id'],
             :customer_payment_profile_id => response.params['customer_payment_profile_id_list'].values.first }
+        else
+          payment.send(:gateway_error, response)
+        end
+      end
+
+      def update_customer_profile(payment)
+
+        #options = options_for_create_customer_profile(payment)
+        #options[:customer_profile_id] = payment.source.gateway_customer_profile_id
+        { 
+          :profile => { 
+            :ship_to_list => generate_address_hash(payment.order.ship_address),
+            :payment_profiles => { 
+              :bill_to => generate_address_hash(payment.order.bill_address) 
+            }
+          },
+          :customer_profile_id => payment.order.email
+        }
+        response = cim_gateway.update_customer_profile(options)
+        if response.success?
+          # Do nothing. Updated.
         else
           payment.send(:gateway_error, response)
         end
