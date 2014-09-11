@@ -65,16 +65,9 @@ module Spree
       if payment.source.has_payment_profile?
         cim_gateway.get_customer_profile({
           :customer_profile_id => payment.source.gateway_customer_profile_id
-        }).params['profile'] 
+        }).params['profile'].deep_symbolize_keys!
       end
     end
-
-    # Update the CIM profile, such as the billing address
-    def update_profile(payment)
-      if payment.source.has_payment_profile?
-        update_customer_profile(payment)
-      end
-    end    
 
     # Get the CIM payment profile; Needed for updates.
     def get_payment_profile(payment)
@@ -86,6 +79,7 @@ module Spree
       end
     end
 
+    # Update billing address on the CIM payment profile
     def update_payment_profile(payment)
       if payment.source.has_payment_profile?
         hash = get_payment_profile(payment)
@@ -146,27 +140,6 @@ module Spree
         if response.success?
           { :customer_profile_id => response.params['customer_profile_id'],
             :customer_payment_profile_id => response.params['customer_payment_profile_id_list'].values.first }
-        else
-          payment.send(:gateway_error, response)
-        end
-      end
-
-      def update_customer_profile(payment)
-
-        #options = options_for_create_customer_profile(payment)
-        #options[:customer_profile_id] = payment.source.gateway_customer_profile_id
-        { 
-          :profile => { 
-            :ship_to_list => generate_address_hash(payment.order.ship_address),
-            :payment_profiles => { 
-              :bill_to => generate_address_hash(payment.order.bill_address) 
-            }
-          },
-          :customer_profile_id => payment.order.email
-        }
-        response = cim_gateway.update_customer_profile(options)
-        if response.success?
-          # Do nothing. Updated.
         else
           payment.send(:gateway_error, response)
         end
