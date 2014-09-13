@@ -32,12 +32,10 @@ module Spree
       create_transaction(amount, creditcard, :auth_capture, transaction_options(gateway_options))
     end
 
-    def capture(authorization, creditcard, gateway_options)
-      create_transaction(
-        (authorization.amount * 100).round, 
-        creditcard, 
-        :prior_auth_capture, 
-        :trans_id => authorization.response_code)
+    # capture is only one where source is not passed in for payment profile
+    def capture(amount, response_code, gateway_options)
+      # no credit card needed
+      create_transaction(amount, nil, :prior_auth_capture, :trans_id => response_code)
     end
 
     def credit(amount, creditcard, response_code, gateway_options)
@@ -97,14 +95,6 @@ module Spree
       end
     end
 
-    # simpler form (does not appear to be used)
-    def create_profile_from_card(card)
-      if card.gateway_customer_profile_id.nil?
-        profile_hash = create_customer_profile(card)
-        card.update_attributes(:gateway_customer_profile_id => profile_hash[:customer_profile_id], :gateway_payment_profile_id => profile_hash[:customer_payment_profile_id])
-      end
-    end
-
     private
 
       def transaction_options(gateway_options)
@@ -115,17 +105,22 @@ module Spree
       # Set up a CIM profile for the card if one doesn't exist
       # Valid transaction_types are :auth_only, :capture_only and :auth_capture
       def create_transaction(amount, creditcard, transaction_type, options = {})
-        #create_profile(creditcard, creditcard.gateway_options)
-        creditcard.save
+        creditcard.save if creditcard
+        
         if amount
           amount = "%.2f" % (amount / 100.0) # This gateway requires formated decimal, not cents
         end
+        
         transaction_options = {
           :type => transaction_type,
-          :amount => amount,
-          :customer_profile_id => creditcard.gateway_customer_profile_id,
-          :customer_payment_profile_id => creditcard.gateway_payment_profile_id,
+          :amount => amount
         }.update(options)
+        
+        transaction_options.update({
+          :customer_profile_id => creditcard.gateway_customer_profile_id,
+          :customer_payment_profile_id => creditcard.gateway_payment_profile_id
+        }) if creditcard
+
         t = cim_gateway.create_customer_profile_transaction(:transaction => transaction_options)
         logger.debug("\nAuthorize Net CIM Transaction")
         logger.debug("  transaction_options: #{transaction_options.inspect}")
