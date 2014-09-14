@@ -106,24 +106,27 @@ module Spree
       # Valid transaction_types are :auth_only, :capture_only and :auth_capture
       def create_transaction(amount, creditcard, transaction_type, options = {})
         creditcard.save if creditcard
+
+        transaction_options = {
+          :type => transaction_type
+        }.update(options)
         
         if amount
           amount = "%.2f" % (amount / 100.0) # This gateway requires formated decimal, not cents
+          transaction_options.update({
+            :amount => amount
+          })
         end
-        
-        transaction_options = {
-          :type => transaction_type,
-          :amount => amount
-        }.update(options)
         
         transaction_options.update({
           :customer_profile_id => creditcard.gateway_customer_profile_id,
           :customer_payment_profile_id => creditcard.gateway_payment_profile_id
         }) if creditcard
 
-        t = cim_gateway.create_customer_profile_transaction(:transaction => transaction_options)
-        logger.debug("\nAuthorize Net CIM Transaction")
+        logger.debug("\nAuthorize Net CIM Request")
         logger.debug("  transaction_options: #{transaction_options.inspect}")
+        t = cim_gateway.create_customer_profile_transaction(:transaction => transaction_options)
+        logger.debug("\nAuthorize Net CIM Response")
         logger.debug("  response: #{t.inspect}\n")
         t
       end
@@ -166,6 +169,7 @@ module Spree
       def cim_gateway
         ActiveMerchant::Billing::Base.gateway_mode = preferred_server.to_sym
         gateway_options = options
+        gateway_options[:test_requests] = false # DD: never ever do test requests because just returns transaction_id = 0
         ActiveMerchant::Billing::AuthorizeNetCimGateway.new(gateway_options)
       end
   end
