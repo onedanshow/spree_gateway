@@ -61,37 +61,44 @@ module Spree
     # Get the CIM payment profile; Needed for updates.
     def get_profile(payment)
       if payment.source.has_payment_profile?
-        cim_gateway.get_customer_profile({
+        profile = cim_gateway.get_customer_profile({
           :customer_profile_id => payment.source.gateway_customer_profile_id
-        }).params['profile'].deep_symbolize_keys!
+        })
+        if profile
+          profile.params['profile'].deep_symbolize_keys!
+        end
       end
     end
 
     # Get the CIM payment profile; Needed for updates.
     def get_payment_profile(payment)
       if payment.source.has_payment_profile?
-        cim_gateway.get_customer_payment_profile({
+        profile = cim_gateway.get_customer_payment_profile({
           :customer_profile_id => payment.source.gateway_customer_profile_id,
           :customer_payment_profile_id => payment.source.gateway_payment_profile_id
-        }).params['payment_profile'].deep_symbolize_keys!
+        })
+        if profile
+          profile.params['payment_profile'].deep_symbolize_keys!
+        end
       end
     end
 
     # Update billing address on the CIM payment profile
     def update_payment_profile(payment)
       if payment.source.has_payment_profile?
-        hash = get_payment_profile(payment)
-        hash[:bill_to] = generate_address_hash(payment.order.bill_address) 
-        if hash[:payment][:credit_card]
-          # activemerchant expects a credit card object with 'number', 'year', 'month', and 'verification_value?' defined
-          payment.source.define_singleton_method(:number) { "XXXXXXXXX#{payment.source.last_digits}" }
-          puts payment.source.number
-          hash[:payment][:credit_card] = payment.source
+        if hash = get_payment_profile(payment)
+          hash[:bill_to] = generate_address_hash(payment.order.bill_address) 
+          if hash[:payment][:credit_card]
+            # activemerchant expects a credit card object with 'number', 'year', 'month', and 'verification_value?' defined
+            payment.source.define_singleton_method(:number) { "XXXXXXXXX#{payment.source.last_digits}" }
+            puts payment.source.number
+            hash[:payment][:credit_card] = payment.source
+          end
+          cim_gateway.update_customer_payment_profile({ 
+            :customer_profile_id => payment.source.gateway_customer_profile_id,
+            :payment_profile => hash
+          })
         end
-        cim_gateway.update_customer_payment_profile({ 
-          :customer_profile_id => payment.source.gateway_customer_profile_id,
-          :payment_profile => hash
-        })
       end
     end
 
