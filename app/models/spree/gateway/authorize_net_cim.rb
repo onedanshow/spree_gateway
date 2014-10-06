@@ -91,7 +91,6 @@ module Spree
           if hash[:payment][:credit_card]
             # activemerchant expects a credit card object with 'number', 'year', 'month', and 'verification_value?' defined
             payment.source.define_singleton_method(:number) { "XXXXXXXXX#{payment.source.last_digits}" }
-            puts payment.source.number
             hash[:payment][:credit_card] = payment.source
           end
           cim_gateway.update_customer_payment_profile({ 
