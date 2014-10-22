@@ -51,7 +51,7 @@ module Spree
       # DD: if unsettled, void needed
       response = void(response_code, nil, nil)
       # DD: if settled, credit/refund needed
-      credit(nil, nil, response_code, nil) unless response.success?
+      response = credit(nil, nil, response_code, nil) unless response.success?
 
       response
     end
