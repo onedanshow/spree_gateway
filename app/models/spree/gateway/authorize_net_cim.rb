@@ -46,6 +46,16 @@ module Spree
       create_transaction(nil, creditcard, :void, :trans_id => response_code)
     end
 
+    def cancel(response_code)      
+      # From: http://community.developer.authorize.net/t5/The-Authorize-Net-Developer-Blog/Refunds-in-Retail-A-user-friendly-approach-using-AIM/ba-p/9848
+      # DD: if unsettled, void needed
+      response = void(response_code, nil, nil)
+      # DD: if settled, credit/refund needed
+      credit(nil, nil, response_code, nil) unless response.success?
+
+      response
+    end
+
     def payment_profiles_supported?
       true
     end
@@ -173,10 +183,12 @@ module Spree
       end
 
       def cim_gateway
-        ActiveMerchant::Billing::Base.gateway_mode = preferred_server.to_sym
-        gateway_options = options
-        gateway_options[:test_requests] = false # DD: never ever do test requests because just returns transaction_id = 0
-        ActiveMerchant::Billing::AuthorizeNetCimGateway.new(gateway_options)
+        @_cim_gateway ||= begin
+          ActiveMerchant::Billing::Base.gateway_mode = preferred_server.to_sym
+          gateway_options = options
+          gateway_options[:test_requests] = false # DD: never ever do test requests because just returns transaction_id = 0
+          ActiveMerchant::Billing::AuthorizeNetCimGateway.new(gateway_options)
+        end
       end
   end
 end
