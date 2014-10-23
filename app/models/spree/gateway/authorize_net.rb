@@ -16,8 +16,8 @@ module Spree
       # From: http://community.developer.authorize.net/t5/The-Authorize-Net-Developer-Blog/Refunds-in-Retail-A-user-friendly-approach-using-AIM/ba-p/9848
       # DD: if unsettled, void needed
       response = provider.void(response_code)
-      # DD: if settled, credit/refund needed
-      response = provider.refund(response_code) unless response.success?
+      # DD: if settled, credit/refund needed (CAN'T DO WITHOUT CREDIT CARD ON AUTH.NET)
+      #response = provider.refund(response_code) unless response.success?
       
       response
     end
