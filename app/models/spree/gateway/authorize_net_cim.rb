@@ -2,9 +2,9 @@ module Spree
   class Gateway::AuthorizeNetCim < Gateway
     preference :login, :string
     preference :password, :string
-    preference :server, :string, :default => "test"
-    preference :test_mode, :boolean, :default => false
-    preference :validate_on_profile_create, :boolean, :default => false
+    preference :server, :string, default: "test"
+    preference :test_mode, :boolean, default: false
+    preference :validate_on_profile_create, :boolean, default: false
 
     ActiveMerchant::Billing::Response.class_eval do
       attr_writer :authorization
@@ -15,9 +15,12 @@ module Spree
     end
 
     def options
-      # add :test key in the options hash, as that is what the ActiveMerchant::Billing::AuthorizeNetGateway expects
-      raise "You must set the 'server' preference in your payment method (Gateway::AuthorizeNetCim) to either 'live' or 'test'" if !['live','test'].include?(self.preferred_server)
-      
+      if !['live','test'].include?(self.preferred_server)
+        raise "You must set the 'server' preference in your payment method (Gateway::AuthorizeNetCim) to either 'live' or 'test'"
+      end
+
+      # add :test key in the options hash, as that is what the
+      # ActiveMerchant::Billing::AuthorizeNetGateway expects
       if self.preferred_server != "live"
         self.preferences[:test] = true
       else
@@ -49,12 +52,12 @@ module Spree
       create_transaction(nil, creditcard, :void, transaction_options(gateway_options).merge(trans_id: response_code))
     end
 
-    def cancel(response_code)      
+    def cancel(response_code)
       # From: http://community.developer.authorize.net/t5/The-Authorize-Net-Developer-Blog/Refunds-in-Retail-A-user-friendly-approach-using-AIM/ba-p/9848
       # DD: if unsettled, void needed
-      response = void(response_code, nil)
+      response = void(response_code, nil, nil)
       # DD: if settled, credit/refund needed
-      response = credit(nil, nil, response_code) unless response.success?
+      response = credit(nil, nil, response_code, nil) unless response.success?
 
       response
     end
@@ -137,14 +140,16 @@ module Spree
           })
         end
 
-        transaction_options.update({
-          customer_profile_id: creditcard.gateway_customer_profile_id,
-          customer_payment_profile_id: creditcard.gateway_payment_profile_id
-        }) if creditcard
+        if creditcard
+          transaction_options.update({
+            customer_profile_id: creditcard.gateway_customer_profile_id,
+            customer_payment_profile_id: creditcard.gateway_payment_profile_id
+          })
+        end
 
         logger.debug("\nAuthorize Net CIM Request")
         logger.debug("  transaction_options: #{transaction_options.inspect}")
-        t = cim_gateway.create_customer_profile_transaction(:transaction => transaction_options)
+        t = cim_gateway.create_customer_profile_transaction(transaction: transaction_options)
         logger.debug("\nAuthorize Net CIM Response")
         logger.debug("  response: #{t.inspect}\n")
         t
