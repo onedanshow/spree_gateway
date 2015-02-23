@@ -55,9 +55,9 @@ module Spree
     def cancel(response_code)
       # From: http://community.developer.authorize.net/t5/The-Authorize-Net-Developer-Blog/Refunds-in-Retail-A-user-friendly-approach-using-AIM/ba-p/9848
       # DD: if unsettled, void needed
-      response = void(response_code, nil, nil)
+      response = void(response_code, nil)
       # DD: if settled, credit/refund needed
-      response = credit(nil, nil, response_code, nil) unless response.success?
+      response = credit(nil, nil, response_code) unless response.success?
 
       response
     end
@@ -120,7 +120,7 @@ module Spree
     private
 
       def transaction_options(gateway_options = {})
-        { order: { invoice_number: gateway_options[:order_id] } } 
+        { order: { invoice_number: gateway_options[:order_id] } }
       end
 
       # Create a transaction on a creditcard
